@@ -287,6 +287,8 @@ func getEvents(all bool) ([]*Event, error) {
 }
 
 func getEvent(eventID, loginUserID int64) (*Event, error) {
+	defer measure.Start("getEvent:all").Stop()
+	m := measure.Start("getEvent:part1")
 	var event Event
 	if err := db.QueryRow("SELECT * FROM events WHERE id = ?", eventID).Scan(&event.ID, &event.Title, &event.PublicFg, &event.ClosedFg, &event.Price); err != nil {
 		return nil, err
@@ -297,12 +299,17 @@ func getEvent(eventID, loginUserID int64) (*Event, error) {
 		"B": &Sheets{},
 		"C": &Sheets{},
 	}
+	m.Stop()
+	m = measure.Start("getEvent:part2")
 
 	rows, err := db.Query("SELECT * FROM sheets ORDER BY `rank`, num")
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
+
+	m.Stop()
+	m = measure.Start("getEvent:part3")
 
 	for rows.Next() {
 		var sheet Sheet
@@ -328,6 +335,7 @@ func getEvent(eventID, loginUserID int64) (*Event, error) {
 
 		event.Sheets[sheet.Rank].Detail = append(event.Sheets[sheet.Rank].Detail, &sheet)
 	}
+	m.Stop()
 
 	return &event, nil
 }
